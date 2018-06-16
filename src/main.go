@@ -47,14 +47,16 @@ const (
 	responseType = "code"
 	scope        = "openid email profile"
 	redirectURI  = "http://localhost:8080/tokenReq"
+	tokenURI     = "https://www.googleapis.com/oauth2/v4/token"
+	grantType    = "authorization_code"
 )
 
-var state string = RandString(15)
-var nonce string = RandString(20)
+var state string = randString(15)
+var nonce string = randString(20)
 var clientID = os.Getenv("CLIENT_ID")
 var clientSecret = os.Getenv("CLIENT_SECRET")
 
-func RandString(n int) string {
+func randString(n int) string {
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = rs2Letters[rand.Intn(len(rs2Letters))]
@@ -84,7 +86,6 @@ func tokenReq(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := &http.Client{Timeout: time.Duration(10) * time.Second}
-	tokenURI := "https://www.googleapis.com/oauth2/v4/token"
 	code := r.URL.Query().Get("code")
 	grantType := "authorization_code"
 
@@ -110,6 +111,7 @@ func tokenReq(w http.ResponseWriter, r *http.Request) {
 
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Printf("Body is \n%v", string(body))
 	getResource(body)
 }
 
@@ -126,6 +128,7 @@ func getResource(body []uint8) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("Id_token is \n%v\n", string(data))
 
 	idTokens := Id_token{}
 	if err := json.Unmarshal(data, &idTokens); err != nil {
@@ -140,10 +143,9 @@ func getResource(body []uint8) {
 
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc("/", authReq)
-	router.Handle("/", router)
-	router.HandleFunc("/tokenReq", tokenReq)
-	router.Handle("/tokenReq", router)
+	router.HandleFunc("/", authReq).Methods(http.MethodGet)
+	router.HandleFunc("/tokenReq", tokenReq).Methods(http.MethodGet)
+	fmt.Println("server is running...")
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", "8080"), router); err != nil {
 		log.Fatal(err)
 	}
